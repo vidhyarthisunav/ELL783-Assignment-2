@@ -4,13 +4,50 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "x86.h"
-#include "proc.h"
 #include "spinlock.h"
+#include "sleeplock.h"
+#include "fs.h"
+#include "file.h"
+#include "proc.h"
+#include "kalloc.h"
 
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable;
+
+void updateNFUState(){
+
+  struct proc *p;
+  int i;
+  pte_t *pte, *pde;
+
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p< &ptable.proc[NPROC]; p++){
+    if((p->state == RUNNING || p->state == RUNNABLE || p->state == SLEEPING)){
+      for(i=0; i<MAX_PSYC_PAGES; i++){
+        if(p->freePages[i].virtualAddress == (char*)0xffffffff)
+          continue;
+        p->freePages[i].age++;
+        p->swappedPages[i].age++;
+
+        pde = &p->pgdir[PDX(p->freePages[i].virtualAddress)];
+        if(*pde & PTE_P){
+          pte_t *pgtab;
+          pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
+          pte = &pgtab[PTX(p->freePages[i].virtualAddress)];
+        }
+        else pte = 0;
+        if(pte){
+          if(*pte & PTE_A){
+            p->freePages[i].age = 0;
+          }
+        }
+      }
+    }
+  }
+  release(&ptable.lock);
+}
 
 static struct proc *initproc;
 
@@ -177,6 +214,7 @@ userinit(void)
 }
 
 // Grow current process's memory by n bytes.
+// n is pagesize
 // Return 0 on success, -1 on failure.
 int
 growproc(int n)
@@ -229,7 +267,6 @@ fork(void)
     np->swapFilePageCount = curproc->swapFilePageCount;
 
   #endif
-
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -294,7 +331,7 @@ fork(void)
           np->tail = &np->freePages[i];
       }
     #endif
-  #endif 
+  #endif  
 
   acquire(&ptable.lock);
 
@@ -304,6 +341,7 @@ fork(void)
 
   return pid;
 }
+
 
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
