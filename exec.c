@@ -38,6 +38,25 @@ exec(char *path, char **argv)
   if((pgdir = setupkvm()) == 0)
     goto bad;
 
+  //Clone all the meta-data of a zombie process and remove it from the proc structure
+  #ifndef NONE
+    for(int i=0;i < MAX_PSYC_PAGES; i++){
+      curproc->freePages[i].virtualAddress = (char*)0xffffffff;
+      curproc->freePages[i].next = 0;
+      curproc->freePages[i].prev = 0;
+      curproc->freePages[i].age = 0;
+      curproc->swappedPages[i].age = 0;
+      curproc->swappedPages[i].virtualAddress = (char*)0xffffffff;
+      curproc->swappedPages[i].swaploc = 0;
+    }
+    curproc->mainMemoryPageCount = 0;
+    curproc->swapFilePageCount = 0;
+    curproc->pageFaultCount = 0;
+    curproc->totalSwapCount = 0;
+    curproc->head = 0;
+    curproc->tail = 0;
+  #endif
+
   // Load program into memory.
   sz = 0;
   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
@@ -101,6 +120,12 @@ exec(char *path, char **argv)
   curproc->tf->esp = sp;
   switchuvm(curproc);
   freevm(oldpgdir);
+
+  #ifndef NONE
+    if(curproc->pid > 2){
+      createSwapFile(curproc);
+    }
+  #endif
 
   return 0;
 
