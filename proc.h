@@ -1,3 +1,6 @@
+#define MAX_PSYC_PAGES 15
+#define MAX_TOTAL_PAGES 30
+
 // Per-CPU state
 struct cpu {
   uchar apicid;                // Local APIC ID
@@ -24,6 +27,7 @@ extern int ncpu;
 // The layout of the context matches the layout of the stack in swtch.S
 // at the "Switch stacks" comment. Switch doesn't save eip explicitly,
 // but it is on the stack and allocproc() manipulates it.
+
 struct context {
   uint edi;
   uint esi;
@@ -33,6 +37,14 @@ struct context {
 };
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+
+struct freePage {
+  char *virtualAddress;
+  int age;
+  struct freePage *next;
+  struct freePage *prev;
+  uint swaploc;
+};
 
 // Per-process state
 struct proc {
@@ -50,8 +62,17 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 
-  //Swap file. must initiate with create swap file
-  struct file *swapFile;      //page file
+  struct file *swapFile;
+
+  int mainMemoryPageCount;
+  int swapFilePageCount;
+  int pageFaultCount;
+  int totalSwapCount;
+  
+  struct freePage freePages[MAX_PSYC_PAGES];
+  struct freePage swappedPages[MAX_PSYC_PAGES];
+  struct freePage *head;
+  struct freePage *tail; 
 };
 
 // Process memory is laid out contiguously, low addresses first:
