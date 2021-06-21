@@ -112,6 +112,29 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
+  // We initialize the metadata for the process if the NONE is not defined
+
+  #ifndef NONE
+
+    int i;
+    for (i = 0; i < MAX_PSYC_PAGES; i++) {
+      p->swappedPages[i].virtualAddress = (char*)0xffffffff;
+      p->swappedPages[i].swaploc = 0;
+      p->swappedPages[i].age = 0;
+      p->freePages[i].virtualAddress = (char*)0xffffffff;
+      p->freePages[i].next = 0;
+      p->freePages[i].prev = 0;
+      p->freePages[i].age = 0;
+    }
+    p->mainMemoryPageCount = 0;
+    p->totalSwapCount = 0;
+    p->pageFaultCount = 0;   
+    p->swapFilePageCount = 0;
+    p->head = 0;
+    p->tail = 0;
+
+  #endif
+    
   return p;
 }
 
