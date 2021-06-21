@@ -134,7 +134,7 @@ found:
     p->tail = 0;
 
   #endif
-    
+
   return p;
 }
 
@@ -223,6 +223,14 @@ fork(void)
   np->parent = curproc;
   *np->tf = *curproc->tf;
 
+  #ifndef NONE
+
+    np->mainMemoryPageCount = curproc->mainMemoryPageCount;
+    np->swapFilePageCount = curproc->swapFilePageCount;
+
+  #endif
+
+
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
 
@@ -235,6 +243,59 @@ fork(void)
 
   pid = np->pid;
 
+  #ifndef NONE
+    if(curproc->pid > 2){
+      createSwapFile(np);
+      char buf[PGSIZE/2] = "";
+      int offset = 0;
+      int nread = 0;
+      while((nread == readFromSwapFile(curproc,buf, offset, PGSIZE/2))!=0)
+        if(writeToSwapFile(np, buf, offset, nread) == -1){
+          panic("fork: error while copying the parent's swap file to the child");
+        offset +=nread;
+      }
+    }
+
+    for(i=0;i<MAX_PSYC_PAGES;i++){
+
+      np->freePages[i].virtualAddress = curproc->freePages[i].virtualAddress;
+      np->freePages[i].age = curproc->freePages[i].age;
+      np->swappedPages[i].virtualAddress = curproc->swappedPages[i].virtualAddress;
+      np->swappedPages[i].age = curproc->swappedPages[i].age;
+      np->swappedPages[i].swaploc = curproc->swappedPages[i].swaploc;
+
+    }
+
+
+    int j;
+    for(i = 0; i<MAX_PSYC_PAGES; i++){
+      for(j=0;j<MAX_PSYC_PAGES;++j){
+        if(np->freePages[j].virtualAddress == curproc->freePages[i].next->virtualAddress)
+          np->freePages[i].next = &np->freePages[j];
+        if(np->freePages[j].virtualAddress == curproc->freePages[i].prev->virtualAddress)
+          np->freePages[i].prev = &np->freePages[j];
+      }
+    }  
+
+    #if SCFIFO
+      for (i = 0; i < MAX_PSYC_PAGES; i++) {
+        if (curproc->head->virtualAddress == np->freePages[i].virtualAddress){
+          np->head = &np->freePages[i];
+        }
+        if (curproc->tail->virtualAddress == np->freePages[i].virtualAddress){
+          np->tail = &np->freePages[i];
+        }
+      }
+    #elif FIFO
+      for(i = 0;i<MAX_PSYC_PAGES;i++){
+        if(curproc->head->virtualAddress == np->freePages[i].virtualAddress)
+          np->head = &np->freePages[i];
+        if(curproc->tail->virtualAddress == np->freePages[i].virtualAddress)
+          np->tail = &np->freePages[i];
+      }
+    #endif
+  #endif 
+      
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
