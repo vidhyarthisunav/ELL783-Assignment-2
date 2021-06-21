@@ -342,6 +342,60 @@ fork(void)
   return pid;
 }
 
+void printProcessDetails(struct proc *proc)
+{
+  static char *states[] = {
+  [UNUSED]    "unused",
+  [EMBRYO]    "embryo",
+  [SLEEPING]  "sleep",
+  [RUNNABLE]  "runble",
+  [RUNNING]   "run",
+  [ZOMBIE]    "zombie"
+  };
+  int i;
+  char *state;
+  uint pc[10];
+  if(proc->state >= 0 && proc->state < NELEM(states) && states[proc->state])
+    state = states[proc->state];
+  else
+    state = "???";
+  cprintf("\n<pid:%d> <state:%s> <name:%s> ", proc->pid, state, proc->name);
+  cprintf("<allocated memory pages: %d> ", proc->mainMemoryPageCount);
+  cprintf("<paged out: %d> ", proc->swapFilePageCount);
+  cprintf("<page faults: %d> ", proc->pageFaultCount);
+  cprintf("<totalnumber of pagedout: %d>\n", proc->totalSwapCount);
+  if(proc->state == SLEEPING){
+      getcallerpcs((uint*)proc->context->ebp+2, pc);
+      int checker = 0;
+      for(i=0; i<10 && pc[i] != 0; i++)
+        {checker = 1; cprintf("%p ", pc[i]);}
+      if(checker)
+        cprintf("\n");
+  }
+  //cprintf("Count of paged out pages: %d,\n\n", proc->swapFilePageCount);
+
+  cprintf("Main Memory Pages: ");
+  for(int pop = 0 ; pop < proc->mainMemoryPageCount ; pop++){
+        cprintf("0x%x ",(char*)proc->freePages[pop].virtualAddress);      
+    
+  }
+  cprintf("\nswapFile Pages: ");
+  for(int pop = 0 ; pop < proc->swapFilePageCount ; pop++){
+    cprintf("0x%x ",(char*)proc->swappedPages[pop].virtualAddress);
+  }
+  if(proc->swapFilePageCount == 0) cprintf("swapFile Empty!");
+  cprintf("\n");
+
+
+  
+}
+
+int 
+compute(const char *p, const char *q){
+  while(*p && *p == *q)
+    p++, q++;
+  return (uchar)*p - (uchar)*q;
+}
 
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
@@ -369,6 +423,10 @@ exit(void)
     {
       removeSwapFile(curproc);
     }
+  #endif
+  #if TRUE
+    if(compute(curproc->name,"sh") != 0)
+      printProcessDetails(curproc);
   #endif
 
   begin_op();
@@ -632,7 +690,7 @@ kill(int pid)
 void
 procdump(void)
 {
-  static char *states[] = {
+  /*static char *states[] = {
   [UNUSED]    "unused",
   [EMBRYO]    "embryo",
   [SLEEPING]  "sleep ",
@@ -658,6 +716,17 @@ procdump(void)
       for(i=0; i<10 && pc[i] != 0; i++)
         cprintf(" %p", pc[i]);
     }
-    cprintf("\n");
+    cprintf("\n");*/
+  struct proc *p;
+  int percentage;
+  for(p = ptable.proc; p<&ptable.proc[NPROC]; p++){
+    if(p->state == UNUSED)
+      continue;
+    printProcessDetails(p);
   }
+  percentage = (freePageCounts.currentFreePages*100)/freePageCounts.initFreePages;
+  cprintf("\nNumber of free physical pages: %d/%d ~ %d%% \n",freePageCounts.currentFreePages,
+    freePageCounts.initFreePages, percentage);
 }
+
+
