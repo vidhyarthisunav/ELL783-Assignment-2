@@ -26,22 +26,24 @@ void updateNFUState(){
   for(p = ptable.proc; p< &ptable.proc[NPROC]; p++){
     if((p->state == RUNNING || p->state == RUNNABLE || p->state == SLEEPING)){
       for(i=0; i<MAX_PSYC_PAGES; i++){
-        if(p->freePages[i].virtualAddress == (char*)0xffffffff)
-          continue;
-        p->freePages[i].age++;
-        p->swappedPages[i].age++;
+        if(!(p->freePages[i].virtualAddress == (char*)0xffffffff)){
+         p->freePages[i].age++;
+         p->swappedPages[i].age++;
 
-        pde = &p->pgdir[PDX(p->freePages[i].virtualAddress)];
-        if(*pde & PTE_P){
-          pte_t *pgtab;
-          pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
-          pte = &pgtab[PTX(p->freePages[i].virtualAddress)];
-        }
-        else pte = 0;
-        if(pte){
-          if(*pte & PTE_A){
-            p->freePages[i].age = 0;
-          }
+         pde = &p->pgdir[PDX(p->freePages[i].virtualAddress)];
+         if(!(*pde & PTE_P)){
+            pte = 0;
+         }
+         else {
+            pte_t *pgtab;
+            pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
+            pte = &pgtab[PTX(p->freePages[i].virtualAddress)];
+         }
+         if(pte){
+            if(*pte & PTE_A){
+              p->freePages[i].age = 0;
+            }
+         } 
         }
       }
     }
@@ -288,7 +290,7 @@ fork(void)
       int nread = 0;
       while((nread == readFromSwapFile(curproc,buf, offset, PGSIZE/2))!=0)
         if(writeToSwapFile(np, buf, offset, nread) == -1){
-          panic("fork: error while copying the parent's swap file to the child");
+          panic("fork: could not copy parent’s swapFile");
         offset +=nread;
       }
     }
