@@ -35,9 +35,9 @@ main(int argc, char *argv[]){
 
 #else
     #if FIFO
-        printf(1,"\nFIFO Check\n");
+        printf(1,"\nFIFO Testing\n");
     #elif SCFIFO
-        printf(1,"\nSCFIFO Check\n");
+        printf(1,"\nSCFIFO Testing\n");
     #endif
     printf(1,"\nProcess starts\n");
     int i;
