@@ -73,7 +73,7 @@ endif
 
 
 ifndef SELECTION
-	SELECTION := NFU
+	SELECTION := FIFO
 endif
 
 ifndef VERBOSE_PRINT
