@@ -10,7 +10,7 @@ int
 main(int argc, char *argv[]){
 
 #if NFU
-    int i;
+    int i,j;
     char *page[15];
     printf(1, "\nNFU Testing\n");
     printf(1, "\nProcess Starts\n");
@@ -35,8 +35,7 @@ main(int argc, char *argv[]){
     page[13] = sbrk(PAGESIZE);
     printf(1, "page[13]=0x%x\n", page[13]);
     printStats();
-    exit();
-    
+    exit()   
 
 #else
     #if FIFO
