@@ -1,3 +1,16 @@
+This repository contains the complete solution to solution to assignment 2 
+of the course ELL783 taught by Professor Smruti R. Sarangi in Holi Semester
+of 2020 - 21 session at IIT Delhi.
+
+Final code can be downloaded from the "Final Commit". To run the code -
+
+make clean && make qemu SELETION=FLAG
+
+FLAG can be one of FIFO, SCFIFO or NFU. 
+(Refer report in the documents folder for more information)
+
+Following this point contains the original readme for xv-6 operating system.
+
 NOTE: we have stopped maintaining the x86 version of xv6, and switched
 our efforts to the RISC-V version
 (https://github.com/mit-pdos/xv6-riscv.git)
