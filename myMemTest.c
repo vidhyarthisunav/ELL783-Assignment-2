@@ -16,7 +16,7 @@ main(int argc, char *argv[]){
     printStats();
 
 
-    printf(1,"\nAllocating 12 more pages...\n\n");
+    printf(1,"\nAllocating 12 more pages...\n");
     for(i = 0; i<12; i++){
         sbrk(PAGESIZE);
     }
@@ -24,11 +24,11 @@ main(int argc, char *argv[]){
     printStats();
 
     //Adding one more page i.e page no.15 
-    printf(1,"\nAllocating 16th page...\n\n");
+    printf(1,"\nAllocating 16th page...\n");
     sbrk(PAGESIZE);
 
     printStats();
-    printf(1,"\nAllocating 17th page...\n\n");
+    printf(1,"\nAllocating 17th page...\n");
     sbrk(PAGESIZE);
     printStats();
     exit();
@@ -44,7 +44,7 @@ main(int argc, char *argv[]){
     char *page[14];
     printf(1,"\nInitial details:\n");
     printStats();
-    printf(1,"\nAssigning 12 more pages for the process...\n\n");
+    printf(1,"\nAssigning 12 more pages for the process...\n");
     for(i = 0; i<12; i++){
         page[i] = sbrk(PAGESIZE);
     }
@@ -52,7 +52,7 @@ main(int argc, char *argv[]){
     printf(1,"\nDetails after assignment of 12 more pages:\n");
     printStats();
 
-    printf(1,"\nAllocating 16th page...\n\n");
+    printf(1,"\nAllocating 16th page...\n");
     page[12] = sbrk(PAGESIZE);
     printf(1,"\nDetails after assignment of 16th page:\n");
     printStats();
