@@ -233,46 +233,46 @@ int checkAccesedBit(char *va){
 }
 
 int exactWriteToSwapFile(int i, struct proc* proc, char *va){
-      int check = writeToSwapFile(proc, (char*)PTE_ADDR(va), i * PGSIZE, PGSIZE);
-      if(check == 0)
-        return 0;
-      pte_t *pte1 = walkpgdir(proc->pgdir, (void*)va, 0);
-      if(!*pte1)
-        panic("exactWriteToSwapFile: page table entry does not exist");      
-      kfree((char*)PTE_ADDR(P2V_WO(*walkpgdir(proc->pgdir, va, 0))));
-      *pte1 = PTE_W | PTE_U | PTE_PG;
-      ++proc->totalSwapCount;
-      ++proc->swapFilePageCount;
-      lcr3(V2P(proc->pgdir));
-      return 1;
+
+  int check = writeToSwapFile(proc, (char*)PTE_ADDR(va), i * PGSIZE, PGSIZE);
+  if(check == 0)
+    return 0;
+  pte_t *pte1 = walkpgdir(proc->pgdir, (void*)va, 0);
+  if(!*pte1)
+    panic("exactWriteToSwapFile: page table entry does not exist");      
+  kfree((char*)PTE_ADDR(P2V_WO(*walkpgdir(proc->pgdir, va, 0))));
+  *pte1 = PTE_W | PTE_U | PTE_PG;
+  ++proc->totalSwapCount;
+  ++proc->swapFilePageCount;
+  lcr3(V2P(proc->pgdir));
+  return 1;
 }
 
-struct freePage *swaptoSwapFile(char *va){
+struct freePage *swaptoSwapFile(char *virtualAddress){
 #if NFU
   struct proc *proc = myproc();
   
   uint tempAge = 0; //maximum age
   uint tempIndex = -1; //maximum index
-  int i = 0,j;
   
   struct freePage *temp;
-  while(i<MAX_PSYC_PAGES){
+  for(int i = 0 ; i < MAX_PSYC_PAGES ; i++){
     if(proc->swappedPages[i].virtualAddress == (char*)0xffffffff){
-      for(j=0; j<MAX_PSYC_PAGES; j++){
-        if(proc->freePages[j].virtualAddress != (char*)0xffffffff){
+      for(int j = 0; j < MAX_PSYC_PAGES ; j++)
+        if(proc->freePages[j].virtualAddress != (char*)0xffffffff)
           if(proc->freePages[j].age > tempAge){
-              tempAge = proc->freePages[j].age;
-              tempIndex = j;
-            }
-        }
-      }
+            tempAge = proc->freePages[j].age;
+            tempIndex = j;
+          }
+    
+      
       if(tempIndex == -1)
         panic("swaptoSwapFile #NFU: no free page");
       temp = &proc->freePages[tempIndex];
       pte_t *pte1 = walkpgdir(proc->pgdir, (void*)temp->virtualAddress, 0);
       if(!pte1)
         panic("swapToSwapFile #NFU: pte1 could not be found");
-      
+
       acquire(&tickslock);
       if((*pte1) && PTE_A){
         temp->age+=1;;
@@ -285,18 +285,15 @@ struct freePage *swaptoSwapFile(char *va){
       if(check == 0)
           return 0;
 
-      temp->virtualAddress = va;
+      temp->virtualAddress = virtualAddress;
       return temp;
     }
-    i++;
   }
-
 
 #elif SCFIFO
   struct proc *proc = myproc();
-  int i = 0;
   struct freePage *iterator, *init_iterator;
-  while(i<MAX_PSYC_PAGES){
+  for(int i = 0 ; i<MAX_PSYC_PAGES ; i++)
     if(proc->swappedPages[i].virtualAddress == (char*)0xffffffff){
       if(!(proc->head == 0 || proc->head->next == 0)){
               
@@ -310,7 +307,7 @@ struct freePage *swaptoSwapFile(char *va){
           proc->head->prev = iterator;
           proc->head = iterator;
           iterator = proc->tail;
-          if(checkAccesedBit(proc->head->virtualAddress) && iterator !=init_iterator) break;
+          if(!checkAccesedBit(proc->head->virtualAddress) && iterator !=init_iterator) break;
         }
       
         proc->swappedPages[i].virtualAddress = proc->head->virtualAddress;
@@ -319,20 +316,17 @@ struct freePage *swaptoSwapFile(char *va){
         if(check == 0)
             return 0;
   
-        proc->head->virtualAddress = va;
+        proc->head->virtualAddress = virtualAddress;
         return proc->head;
       } else {
         panic("swaptoSwapFile #SCFIFO: memory pages not enough!");
       }      
     }
-    i++;
-  }
 
 #elif FIFO
   struct proc *proc = myproc();
-  int i=0;
   struct freePage *temp, *last;
-  while(i<MAX_PSYC_PAGES){
+  for(int i = 0 ; i<MAX_PSYC_PAGES ; i++)
     if(proc->swappedPages[i].virtualAddress == (char*)0xffffffff){
       temp = proc->head;
       if(temp == 0)
@@ -345,39 +339,33 @@ struct freePage *swaptoSwapFile(char *va){
       temp->next = 0;
       proc->swappedPages[i].virtualAddress = last->virtualAddress;
 
-      int check = exactWriteToSwapFile(i, proc, proc->head->virtualAddress);
+      int check = exactWriteToSwapFile(i, proc, last->virtualAddress);
       if(check == 0)
           return 0;
 
       return last;
-    }  
-    i++;
-  }
+    }
   
 #endif
-  panic("swaptoSwapFile: no free pages available!");
+  panic("swaptoSwapFile: no free pages avirtualAddressilable!");
   return 0;  
 }
 
-void fillMetadata(char *va){
+void fillMetadata(char *virtualAddress){
   #if NFU
     struct proc *proc = myproc();
-    int i = 0;
-    while(i<MAX_PSYC_PAGES){
+    for(int i = 0 ; i<MAX_PSYC_PAGES ; i++)
       if(proc->freePages[i].virtualAddress == (char*)0xffffffff){
-         proc->freePages[i].virtualAddress = va;
+         proc->freePages[i].virtualAddress = virtualAddress;
          proc->mainMemoryPageCount++;
          return;
       }
-      i++;
-    }
   
   #elif SCFIFO
     struct proc *proc = myproc();
-    int i=0;
-    while(i < MAX_PSYC_PAGES){
+    for(int i = 0 ; i<MAX_PSYC_PAGES ; i++)
       if (proc->freePages[i].virtualAddress == (char*)0xffffffff){
-        proc->freePages[i].virtualAddress = va;
+        proc->freePages[i].virtualAddress = virtualAddress;
         proc->freePages[i].next = proc->head;
         proc->freePages[i].prev = 0;
         if(!proc->head)
@@ -388,29 +376,25 @@ void fillMetadata(char *va){
         proc->mainMemoryPageCount++;
         return;
       }
-      i++;
-    }
+
     cprintf("panic follows, pid:%d, name:%s\n", proc->pid, proc->name);
   
   #elif FIFO 
     //cprintf("FIFO" );
     struct proc *proc = myproc();
-    int i=0;
-    while(i<MAX_PSYC_PAGES){
+    for(int i = 0 ; i<MAX_PSYC_PAGES ; i++)
       if(proc->freePages[i].virtualAddress == (char*)0xffffffff){
-        proc->freePages[i].virtualAddress = va;
+        proc->freePages[i].virtualAddress = virtualAddress;
         proc->freePages[i].next = proc->head;
         proc->head = &proc->freePages[i];
         proc->mainMemoryPageCount++;
         return;
       }
-      i++;
-    }
+
     cprintf("panic follows, pid:%d, name:%s\n", proc->pid, proc->name);  
   #endif
     panic("fillMetadata: no free pages");
 }
-
 // Allocate page tables and physical memory to grow process from oldsz to
 // newsz, which need not be page aligned.  Returns new size or 0 on error.
 int
@@ -432,30 +416,28 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
   for(; a < newsz; a += PGSIZE){
 
-  #ifndef NONE
-    struct freePage *last;
-    uint newpage = 1;
-    if(proc->mainMemoryPageCount >= MAX_PSYC_PAGES && proc->pid > 2){
-      last = swaptoSwapFile((char*)a);
-      if(last == 0)
-        panic("Cannot write to swap file :: allocuvm");
-      #if FIFO
-      //cprintf("should be called fifo part\n");
-        last->virtualAddress = (char*)a;
-        last->next = proc->head;
-        proc->head = last;
-      #endif
-      newpage = 0;
-    }
-  #endif
-
-    mem = kalloc();
-
     #ifndef NONE
-      if(newpage){
+      struct freePage *last;
+      uint page = 1;
+      if(proc->mainMemoryPageCount >= MAX_PSYC_PAGES && proc->pid > 2){
+        last = swaptoSwapFile((char*)a);
+        if(last){
+          #if FIFO
+          //cprintf("should be called fifo part\n");
+            last->virtualAddress = (char*)a;
+            last->next = proc->head;
+            proc->head = last;
+          #endif
+          page = 0;
+        } else {
+          panic("Cannot write to swap file :: allocuvm");
+        }        
+      } if(page){
         fillMetadata((char*)a);
       }
     #endif
+
+    mem = kalloc();  
 
     if(mem == 0){
       cprintf("allocuvm out of memory\n");
@@ -475,82 +457,80 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
   return newsz;
 }
 
-void swapAfterPageFault(uint addr){
+void exactForSwapAfterPageFault(struct proc* proc, int i, pte_t *pte1, pte_t *pte2, uint address){
+
+  
+  if (!*pte1)
+    panic("exactForSwapAfterPageFault: pte1 is empty");
+  if (!*pte2)
+    panic("exactForSwapAfterPageFault: pte2 is empty");
+  *pte2 = PTE_ADDR(*pte1) | PTE_U | PTE_W | PTE_P;
+
+  char buf[BUFFER_SIZE];
+
+  for(int j = 0; j < 4 ;j++){
+    int vaoffset = ((PGSIZE / 4) * j);
+    int location = (i * PGSIZE) + ((PGSIZE / 4) * j);
+    memset(buf, 0, BUFFER_SIZE);
+    readFromSwapFile(proc, buf, location, BUFFER_SIZE);
+    writeToSwapFile(proc, (char*)(P2V_WO(PTE_ADDR(*pte1)) + vaoffset), location, BUFFER_SIZE);
+    memmove((void*)(PTE_ADDR(address) + vaoffset), (void*)buf, BUFFER_SIZE);
+  }
+  *pte1 = PTE_U | PTE_W | PTE_PG;
+  lcr3(V2P(proc->pgdir));
+  proc->totalSwapCount++;
+
+}
+
+void swapAfterPageFault(uint address){
   struct proc *proc = myproc();
   if (proc->pid <2) {
     return;
   }
   #if NFU 
-    int i = 0,j = 0;
-    char buf[BUFFER_SIZE];
-    uint maxAge = 0;
-    uint maxIndex = -1;
-    struct freePage *candidate;
-    pte_t *pte1, *pte2;
-    while(j < MAX_PSYC_PAGES){
-      if (proc->freePages[j].virtualAddress != (char*)0xffffffff){
-        if (proc->freePages[j].age > maxAge){
-          maxAge = proc->freePages[j].age;
-          maxIndex = j;
-        }
-      }
-      j++;
-    }
-    if(maxIndex != -1)
-      candidate = &proc->freePages[maxIndex];
-    else
-      panic("NO swap page found :: nfuSwap");
     
-    pte1 = walkpgdir(proc->pgdir, (void*)candidate->virtualAddress, 0);
-    if(!*pte1)  
-      panic("Pte1 is empty :: nfu :: swapPages");
+    uint tempAge = 0; //maximum age
+    uint tempIndex = -1; //maximum index
+    struct freePage *temp; //candidate page
+    for(int j = 0; j < MAX_PSYC_PAGES ; j++){
+      if (proc->freePages[j].virtualAddress != (char*)0xffffffff && proc->freePages[j].age > tempAge){
+        tempAge = proc->freePages[j].age;
+        tempIndex = j;
+      }
+    }
+    if(!tempIndex)
+      panic("swapAfterPageFault #NFU: No free page available!");
+    else
+      temp = &proc->freePages[tempIndex];
+    
+    pte_t *pte1 = walkpgdir(proc->pgdir, (void*)temp->virtualAddress, 0);
+    if(!*pte1)
+      panic("swapAfterPageFault #NFU: page table entry empty!");
     acquire(&tickslock);
     if((*pte1) & PTE_A){
-      candidate->age++;
+      temp->age++;
       *pte1 &= ~PTE_A;
     }
     release(&tickslock);
-    i = 0; 
-    while(i < MAX_PSYC_PAGES){
-      if (proc->swappedPages[i].virtualAddress == (char*)PTE_ADDR(addr)){
-        proc->swappedPages[i].virtualAddress = candidate->virtualAddress;
-        pte2 = walkpgdir(proc->pgdir, (void*)addr, 0);
-        if (!*pte2)
-          panic("nfuSwap: pte2 is empty");
-        *pte2 = PTE_ADDR(*pte1) | PTE_U | PTE_W | PTE_P;// access bit is zeroed...
-        j = 0;
-        while(j < 4) {
-          int loc = (i * PGSIZE) + ((PGSIZE / 4) * j);
-          int addroffset = ((PGSIZE / 4) * j);
-          memset(buf, 0, BUFFER_SIZE);
-          readFromSwapFile(proc, buf, loc, BUFFER_SIZE);
-          writeToSwapFile(proc, (char*)(P2V_WO(PTE_ADDR(*pte1)) + addroffset), loc, BUFFER_SIZE);
-          memmove((void*)(PTE_ADDR(addr) + addroffset), (void*)buf, BUFFER_SIZE);
-          j++;
-        }
-        *pte1 = PTE_U | PTE_W | PTE_PG;
-        candidate->virtualAddress = (char*)PTE_ADDR(addr);
-        candidate->age = 0;
-        lcr3(V2P(proc->pgdir));
-        proc->totalSwapCount++;
+    for(int i = 0 ; i < MAX_PSYC_PAGES ; i++){
+      if (proc->swappedPages[i].virtualAddress == (char*)PTE_ADDR(address)){
+        proc->swappedPages[i].virtualAddress = temp->virtualAddress;
+        exactForSwapAfterPageFault(proc, i,
+          pte1, 
+          walkpgdir(proc->pgdir, (void*)address, 0), address);
+        proc->head->virtualAddress = (char*)PTE_ADDR(address);
         return;
-      }    
-      i++;  
+      }
     }
-    panic("No slot for swapped page :: nfu :: swapPages");
   #elif SCFIFO
-    int i,j;
-    char buf[BUFFER_SIZE];
-    pte_t *pte1, *pte2;
     struct freePage *itr, *init_itr;
     if (proc->head == 0)
-      panic("Proc->head is NULL :: scfifo :: swapPages");
+      panic("swapAfterPageFault #SCFIFO: proc's head is null!");
     if (proc->head->next == 0)
-      panic("Single page in physical memory :: scfifo :: swapPages");
+      panic("swapAfterPageFault #SCFIFO: only one page in memory!");
     itr = proc->tail;
     init_itr = proc->tail;
-    do{
-      //move mover from tail to head
+    for(;;){
       proc->tail = proc->tail->prev;
       proc->tail->next = 0;
       itr->prev = 0;
@@ -558,87 +538,49 @@ void swapAfterPageFault(uint addr){
       proc->head->prev = itr;
       proc->head = itr;
       itr = proc->tail;
-    }while(checkAccesedBit(proc->head->virtualAddress) && itr != init_itr);
-    pte1 = walkpgdir(proc->pgdir, (void*)proc->head->virtualAddress, 0);
-    if (!*pte1)
-      panic("SCFIFO pte1 is empty :: swapPages");
-    //find a swap file page descriptor slot
-    i = 0;
-    while(i < MAX_PSYC_PAGES){
-      if (proc->swappedPages[i].virtualAddress == (char*)PTE_ADDR(addr)){
+      if(!checkAccesedBit(proc->head->virtualAddress) && itr != init_itr) break;
+    }
+    for(int i = 0 ; i < MAX_PSYC_PAGES ; i++){
+      if (proc->swappedPages[i].virtualAddress == (char*)PTE_ADDR(address)){
         proc->swappedPages[i].virtualAddress = proc->head->virtualAddress;
-        pte2 = walkpgdir(proc->pgdir, (void*)addr, 0);
-        if (!*pte2)
-          panic("SCFIFO pte2 is empty :: swapPages");
-        *pte2 = PTE_ADDR(*pte1) | PTE_U | PTE_W | PTE_P;// access bit is zeroed...
-        j = 0;
-        while(j < 4) {
-          int loc = (i * PGSIZE) + ((PGSIZE / 4) * j);
-          int addroffset = ((PGSIZE / 4) * j);
-          memset(buf, 0, BUFFER_SIZE);
-          readFromSwapFile(proc, buf, loc, BUFFER_SIZE);
-          writeToSwapFile(proc, (char*)(P2V_WO(PTE_ADDR(*pte1)) + addroffset), loc, BUFFER_SIZE);
-          memmove((void*)(PTE_ADDR(addr) + addroffset), (void*)buf, BUFFER_SIZE);
-          j++;
-        }
-        *pte1 = PTE_U | PTE_W | PTE_PG;
-        proc->head->virtualAddress = (char*)PTE_ADDR(addr);
-        lcr3(V2P(proc->pgdir));
-        proc->totalSwapCount++;
+        exactForSwapAfterPageFault(proc, i,
+          walkpgdir(proc->pgdir, (void*)proc->head->virtualAddress, 0), 
+          walkpgdir(proc->pgdir, (void*)address, 0), address);
+        proc->head->virtualAddress = (char*)PTE_ADDR(address);
         return; 
       }
-      i++;
     }
-    panic("SCFIFO no slot for swapped page :: swapPages");
   #elif FIFO
-    int i,j;
-    char buffer[BUFFER_SIZE];
-    pte_t *pte1, *pte2;
+    int i;
     struct freePage *temp = proc->head;
-    struct freePage *last;
+    struct freePage *tail;
     if(temp == 0)
       panic("Proc->head is NULL :: fifo :: swapPages");
     if (temp->next == 0)
       panic("Single page in phys mem :: fifo :: swapPages");
-    // find the before-last link in the used pages list
+    // find the before-tail link in the used pages list
     while (temp->next->next != 0)
       temp = temp->next;
-    last = temp->next;
-    temp->next = 0; 
-    pte1 = walkpgdir(proc->pgdir,(void*)last->virtualAddress,0);  
-    if(!*pte1)
-      panic("FIFO pte1 is empty :: swapPages");
+    tail = temp->next;
+    temp->next = 0;
     i = 0;
     while(i<MAX_PSYC_PAGES){
-      if(proc->swappedPages[i].virtualAddress == (char*)PTE_ADDR(addr)){
-        proc->swappedPages[i].virtualAddress = last->virtualAddress;
-        pte2 = walkpgdir(proc->pgdir, (void*)addr, 0);
-        if(!*pte2)
-          panic("FIFO pte2 is empty :: swapPages");
-        
-        *pte2 = PTE_ADDR(*pte1) | PTE_U | PTE_W | PTE_P;
-        j = 0;
-        while(j<4){
-          int loc = (i * PGSIZE) + ((PGSIZE / 4) * j);
-          int addroffset = ((PGSIZE / 4) * j);
-          memset(buffer,0,BUFFER_SIZE);
-          readFromSwapFile(proc,buffer,loc,BUFFER_SIZE);
-          writeToSwapFile(proc, (char*)(P2V_WO(PTE_ADDR(*pte1)) + addroffset), loc, BUFFER_SIZE);
-          memmove((void*)(PTE_ADDR(addr) + addroffset), (void*)buffer, BUFFER_SIZE);
-          j++;
-        }
-        *pte1 = PTE_U | PTE_W | PTE_PG;
-        last->next = proc->head;
-        proc->head = last;
-        last->virtualAddress = (char*)PTE_ADDR(addr);
-        lcr3(V2P(proc->pgdir));
-        proc->totalSwapCount++;
+      
+      if(proc->swappedPages[i].virtualAddress == (char*)PTE_ADDR(address)){
+        proc->swappedPages[i].virtualAddress = tail->virtualAddress;
+        exactForSwapAfterPageFault(proc, i,
+          walkpgdir(proc->pgdir, (void*)tail->virtualAddress, 0), 
+          walkpgdir(proc->pgdir, (void*)address, 0), address);
+        tail->next = proc->head;
+        proc->head = tail;
+        tail->virtualAddress = (char*)PTE_ADDR(address);
         return; 
       }
       i++;
     }
     panic("Problem in swappages");
   #endif
+    panic("swapAfterPageFault: No free page Problem in swapping after page fault");
 }
 
 // Deallocate user pages to bring the process size from oldsz to
@@ -691,8 +633,6 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
             }
             if (proc->tail == &proc->freePages[i]){
               proc->tail = proc->freePages[i].prev;
-              if(proc->tail != 0)// should allways be true but lets be extra safe...
-                proc->tail->next = 0;
               proc->freePages[i].next = 0;
               proc->freePages[i].prev = 0;
             }

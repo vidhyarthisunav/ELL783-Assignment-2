@@ -90,18 +90,17 @@ trap(struct trapframe *tf)
     lapiceoi();
     break;
   
-  case T_PGFLT:
+   case T_PGFLT:
     addr = rcr2();
     vaddr = &(myproc()->pgdir[PDX(addr)]);
-    if(!((int)(*vaddr) & PTE_P)){
-      cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
-        tf->trapno, cpuid(), tf->eip, rcr2());
-      panic("T_PGFLT: trap");
-    } else if(((uint*)PTE_ADDR(P2V(*vaddr)))[PTX(addr)]&PTE_PG){
-      swapAfterPageFault(PTE_ADDR(addr));
-      ++myproc()->pageFaultCount;
-      return;
+    if(((int)(*vaddr) & PTE_P)!=0){
+      if(((uint*)PTE_ADDR(P2V(*vaddr)))[PTX(addr)]&PTE_PG){
+        swapAfterPageFault(PTE_ADDR(addr));
+        ++myproc()->pageFaultCount;
+        return;
+      }
     }
+
 
   //PAGEBREAK: 13
   default:

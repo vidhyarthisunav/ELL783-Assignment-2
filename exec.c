@@ -112,6 +112,11 @@ exec(char *path, char **argv)
       last = s+1;
   safestrcpy(curproc->name, last, sizeof(curproc->name));
 
+  #ifndef NONE
+    if(curproc->pid > 2){
+      createSwapFile(curproc);
+    }
+  #endif
   // Commit to the user image.
   oldpgdir = curproc->pgdir;
   curproc->pgdir = pgdir;
@@ -120,12 +125,6 @@ exec(char *path, char **argv)
   curproc->tf->esp = sp;
   switchuvm(curproc);
   freevm(oldpgdir);
-
-  #ifndef NONE
-    if(curproc->pid > 2){
-      createSwapFile(curproc);
-    }
-  #endif
 
   return 0;
 
