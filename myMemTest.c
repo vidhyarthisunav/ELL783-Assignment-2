@@ -5,13 +5,11 @@
 
 #define PAGESIZE 4096
 
-
 int
 main(int argc, char *argv[]){
 
 #if NFU
-    int i,j;
-    char *page[15];
+    int i;
     printf(1, "\nNFU Testing\n");
     printf(1, "\nProcess Starts\n");
     printf(1,"\nInitial process details:\n");
@@ -20,22 +18,20 @@ main(int argc, char *argv[]){
 
     printf(1,"\nAllocating 12 more pages...\n\n");
     for(i = 0; i<12; i++){
-        page[i] = sbrk(PAGESIZE);
+        sbrk(PAGESIZE);
     }
     printf(1,"\nProcess details:\n");
     printStats();
 
     //Adding one more page i.e page no.15 
     printf(1,"\nAllocating 16th page...\n\n");
-    page[12] = sbrk(PAGESIZE);
-    printf(1, "page[12]=0x%x\n", page[13]);
+    sbrk(PAGESIZE);
 
     printStats();
     printf(1,"\nAllocating 17th page...\n\n");
-    page[13] = sbrk(PAGESIZE);
-    printf(1, "page[13]=0x%x\n", page[13]);
+    sbrk(PAGESIZE);
     printStats();
-    exit()   
+    exit();
 
 #else
     #if FIFO
